@@ -1,7 +1,7 @@
 // Client logic for the shared sweepstake. Loaded as <script type="module" src="/app.js">.
 // Sources all data from GET /api/state; writes go through /api; admin writes carry
 // the x-admin-key header. Pure logic (teams, scoring, draw) is imported from /lib.
-import { TEAM, GROUPS, PAIRS, ALL_TEAMS, STAGE_ORDER, KO_LABEL, POOL_WIN, MATCH_DATES } from '/lib/teams.js';
+import { TEAM, GROUPS, PAIRS, ALL_TEAMS, STAGE_ORDER, KO_LABEL, POOL_WIN, MATCH_DATES, KO_DATES } from '/lib/teams.js';
 import { deriveAll, teamPts, standingsFor, leaderboardRows } from '/lib/scoring.js';
 import { computeAssignments } from '/lib/draw.js';
 
@@ -20,6 +20,17 @@ function fmtMatchDate(iso) {
   const wd = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][d.getUTCDay()];
   const mo = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][d.getUTCMonth()];
   return wd + ' ' + d.getUTCDate() + ' ' + mo;
+}
+
+// Wikipedia-style round date range, e.g. "28 June – 3 July 2026" / "19 July 2026".
+const MONTHS_FULL = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+function fmtKoRange(from, to) {
+  const f = new Date(from + 'T12:00:00Z'), t = new Date(to + 'T12:00:00Z');
+  const yr = t.getUTCFullYear();
+  if (from === to) return f.getUTCDate() + ' ' + MONTHS_FULL[f.getUTCMonth()] + ' ' + yr;
+  // Same month → "4–7 July 2026"; spanning months → "28 June – 3 July 2026".
+  if (f.getUTCMonth() === t.getUTCMonth()) return f.getUTCDate() + '–' + t.getUTCDate() + ' ' + MONTHS_FULL[t.getUTCMonth()] + ' ' + yr;
+  return f.getUTCDate() + ' ' + MONTHS_FULL[f.getUTCMonth()] + ' – ' + t.getUTCDate() + ' ' + MONTHS_FULL[t.getUTCMonth()] + ' ' + yr;
 }
 
 /* ===================================================================== */
@@ -195,6 +206,16 @@ function buildFixturesScaffold() {
     $('koB').innerHTML = opts;
   }
   syncKoPen();
+
+  // Knockout round schedule (static reference, Wikipedia-style round → dates).
+  if ($('koDates')) {
+    $('koDates').innerHTML = '<table class="stand"><thead><tr><th>Round</th><th style="text-align:right">Dates</th></tr></thead><tbody>'
+      + KO_DATES.map(r =>
+          '<tr><td>' + r.label + '</td>'
+          + '<td class="num" style="text-align:right;font-family:\'Space Mono\',monospace;color:var(--gold)">' + fmtKoRange(r.from, r.to) + '</td></tr>'
+        ).join('')
+      + '</tbody></table>';
+  }
   fixturesBuilt = true;
 }
 
