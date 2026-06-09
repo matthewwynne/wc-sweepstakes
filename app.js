@@ -100,14 +100,23 @@ function gateUnlocked() { return localStorage.getItem('sweep:seed') === STATE.se
 function renderOnboarding() {
   const confirmed = STATE.players.filter(p => p.confirmed).length;
   $('confirmCount').textContent = confirmed + ' / ' + STATE.players.length + ' confirmed';
-  $('rosterList').innerHTML = STATE.players.map(p =>
-    '<div class="rrow"><span>' + esc(p.name) + '</span>'
-    + '<span class="rstatus">' + (p.confirmed ? '✓ in' : '—')
-    + (p.paid ? ' · \u{1F4B0} paid' : '') + '</span>'
-    + (p.confirmed && !p.paid
-        ? '<button class="act go pay-btn" data-pay="' + esc(p.name) + '" style="padding:6px 12px;font-size:11px">Pay R250</button>'
-        : '')
-    + '</div>').join('');
+  const admin = isAdmin();
+  $('rosterList').innerHTML = STATE.players.map(p => {
+    const pay = (p.confirmed && !p.paid)
+      ? '<button class="act go pay-btn" data-pay="' + esc(p.name) + '" style="padding:6px 12px;font-size:11px">Pay R250</button>'
+      : '';
+    // Admin: toggle a player's confirmation (clear a mistaken "I'm in", or mark someone in).
+    const toggle = admin
+      ? (p.confirmed
+          ? '<button class="del confirm-toggle" data-name="' + esc(p.name) + '" data-confirmed="false" title="Clear this confirmation">✕</button>'
+          : '<button class="act ghost confirm-toggle" data-name="' + esc(p.name) + '" data-confirmed="true" style="padding:4px 10px;font-size:11px">Mark in</button>')
+      : '';
+    return '<div class="rrow"><span>' + esc(p.name) + '</span>'
+      + '<span class="rstatus">' + (p.confirmed ? '✓ in' : '—')
+      + (p.paid ? ' · \u{1F4B0} paid' : '') + '</span>'
+      + pay + toggle
+      + '</div>';
+  }).join('');
   $('nameSelect').innerHTML = '<option value="">— pick your name —</option>'
     + STATE.players.filter(p => !p.confirmed).map(p => '<option>' + esc(p.name) + '</option>').join('');
   // admin: roster editor (only repopulate when not focused so edits aren't clobbered)
@@ -332,6 +341,16 @@ on('confirmBtn', 'click', async () => {
 
 // Onboarding: player self-pay (public) — redirects to Stitch hosted checkout
 $('rosterList').addEventListener('click', async e => {
+  // Admin: toggle a player's confirmed flag
+  const tog = e.target.closest('.confirm-toggle');
+  if (tog) {
+    if (!isAdmin()) return;
+    tog.disabled = true;
+    const r = await post('/api/admin/confirm', { name: tog.dataset.name, confirmed: tog.dataset.confirmed === 'true' }, true);
+    if (r && r.error) alert('Could not update: ' + r.error);
+    await refresh();
+    return;
+  }
   const btn = e.target.closest('.pay-btn'); if (!btn) return;
   btn.disabled = true; btn.textContent = 'Redirecting…';
   try {
