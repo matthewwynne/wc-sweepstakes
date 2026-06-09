@@ -1,0 +1,16 @@
+{
+  "name": "wc-sweepstakes",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test"
+  },
+  "dependencies": {
+    "@neondatabase/serverless": "^0.10.4",
+    "svix": "^1.95.2"
+  },
+  "engines": {
+    "node": "22.x"
+  }
+}

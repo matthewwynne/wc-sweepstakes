@@ -144,6 +144,14 @@
   ul.rules li{padding:8px 0 8px 22px;position:relative;font-size:14px;color:#c8d2e0;line-height:1.55;border-bottom:1px solid rgba(42,51,66,.4)}
   ul.rules li:before{content:"›";position:absolute;left:4px;color:var(--green);font-weight:700}
   ul.rules li:last-child{border-bottom:none}
+
+  /* admin visibility + onboarding rows */
+  #adminBar{display:none}
+  body.admin #adminBar{display:block}
+  body:not(.admin) #poolWrap .sc{opacity:.7}
+  body:not(.admin) .admin-only{display:none}
+  .rrow{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(42,51,66,.4);font-size:14px}
+  .rstatus{font-family:'Space Mono',monospace;font-size:12px;color:var(--muted)}
 </style>
 </head>
 <body>
@@ -160,7 +168,55 @@
       <div class="stat"><div class="k">Total pot</div><div class="v g">R6 000</div></div>
       <div class="stat"><div class="k">Teams</div><div class="v y">48</div></div>
     </div>
+    <div style="text-align:right;margin-top:8px">
+      <button class="del" id="adminLock" title="Banker login">&#128274;</button>
+      <span id="adminLoginRow" style="display:none">
+        <input class="sc" id="adminPassInput" type="password" style="width:140px" placeholder="passphrase">
+        <button class="act ghost" id="adminUnlockBtn">Unlock</button>
+      </span>
+    </div>
   </header>
+
+  <!-- ============ ONBOARDING (locked=false) ============ -->
+  <div id="onboardingView" style="display:none">
+    <div class="card">
+      <h2>Are you in?</h2>
+      <p class="lead">Pick your name and confirm you&rsquo;re playing. <span id="confirmCount" class="savetag"></span></p>
+      <div class="btnrow">
+        <select id="nameSelect" class="seed" style="max-width:280px"></select>
+        <button class="act go" id="confirmBtn">I&rsquo;m in</button>
+      </div>
+      <div id="rosterList" class="ko-list" style="margin-top:16px"></div>
+    </div>
+    <!-- admin-only: roster editor + run draw (visibility via body.admin in CSS;
+         no inline display style, which would override the stylesheet rule) -->
+    <div class="card" id="adminBar">
+      <h2>Banker controls</h2>
+      <label class="fld">Roster (one name per line)</label>
+      <textarea id="rosterEditBox" rows="8"></textarea>
+      <div class="btnrow"><button class="act ghost" id="rosterSaveBtn">Save roster</button></div>
+      <label class="fld" style="margin-top:14px">Draw seed</label>
+      <input class="seed" id="seedInput" placeholder="agree it in the chat first">
+      <div class="btnrow">
+        <button class="act go" id="runDrawBtn">&#9917; Run the draw</button>
+        <button class="act ghost" id="newGameBtn">Start a new game</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ SEED GATE (locked=true, family not yet verified) ============ -->
+  <div id="seedGate" style="display:none">
+    <div class="card">
+      <h2>Enter the draw seed</h2>
+      <p class="lead">The draw is done. Type the agreed seed to open the sweepstake and verify it wasn&rsquo;t rigged.</p>
+      <input class="seed" id="gateSeedInput" placeholder="the seed agreed in the chat">
+      <div class="btnrow"><button class="act go" id="gateEnterBtn">Open</button></div>
+      <p class="hint" id="gateMsg"></p>
+    </div>
+  </div>
+
+  <!-- ============ DASHBOARD (verified or admin) ============ -->
+  <div id="dashboard" style="display:none">
 
   <nav class="tabs">
     <button class="tab active" data-view="draw">The Draw</button>
@@ -171,28 +227,9 @@
 
   <!-- ============ DRAW ============ -->
   <section class="view active" id="draw">
-    <div class="card">
-      <h2>Run the draw</h2>
-      <p class="lead">The draw is <b style="color:var(--green)">reproducible</b>: the same seed always produces the same result. Pick a seed nobody can rig &mdash; total goals on opening day, a Lotto number, or just do it live on a call. Then anyone can type the seed in and confirm it wasn't fiddled. (Solves the 4-years-ago problem.)</p>
-      <label class="fld">Draw seed</label>
-      <input class="seed" id="seedInput" placeholder="e.g.  opening-day-2026  /  47  /  lotto-19-32-44">
-      <div class="btnrow">
-        <button class="act go" id="drawBtn">&#9917; Run the draw</button>
-        <button class="act ghost" id="randSeed">Random seed</button>
-        <span class="savetag" id="saveTag"></span>
-      </div>
-      <p class="hint" style="margin-top:14px">Tip: agree the seed in the group chat <i>before</i> running it, so everyone knows it was honest.</p>
-    </div>
-
-    <div class="card" id="playersCard">
-      <h2>Players</h2>
-      <p class="lead">One name per line. Needs 24 to hand out all teams cleanly. Edit if someone drops out, then re-run the draw.</p>
-      <textarea id="playersBox" rows="8"></textarea>
-    </div>
-
-    <div class="card" id="resultCard" style="display:none">
+    <div class="card" id="resultCard">
       <h2>The teams</h2>
-      <p class="lead" id="resultLead"></p>
+      <p class="lead"><span id="resultLead"></span> <span id="verifyBadge"></span></p>
       <div style="overflow-x:auto"><table id="drawTable"></table></div>
     </div>
   </section>
@@ -207,6 +244,12 @@
     </div>
 
     <div class="card">
+      <h2>Knockout schedule</h2>
+      <p class="lead">The bracket dates, once the group stage wraps up on 27 June.</p>
+      <div id="koDates"></div>
+    </div>
+
+    <div class="card admin-only">
       <h2>Knockout results</h2>
       <p class="lead">Once the bracket is set, record each knockout match here: pick the round and the two teams, enter the score (and who won on penalties if drawn). The winner is advanced automatically, so each team's furthest stage &mdash; and its points &mdash; stays correct without you tracking the bracket by hand.</p>
       <div class="ko-form">
@@ -293,321 +336,11 @@
     </div>
   </section>
 
+  </div><!-- /#dashboard -->
+
 </div>
 
-<script>
-/* ===================================================================== */
-/*  DATA                                                                 */
-/* ===================================================================== */
-const DEFAULT_PLAYERS = ["Carern","Maurice","Claire","Adam","Nick","Jamie","Gavin","Peter","Merle","Kim","Dane","Lynne","Brandon","Mare","Ben","Melissa","Matt","Chris","Meegan","Ethan","Meggie","Kyle","Pat","Pieter"];
-
-// Tiered by bookmaker WINNER ODDS (decimal, as of 11 Jun 2026): rank 1 = shortest
-// odds / most likely winner. Tier S = odds rank 1-24, Tier W = odds rank 25-48.
-const STRONG = [
-  ["France","\u{1F1EB}\u{1F1F7}",1],["Spain","\u{1F1EA}\u{1F1F8}",2],["England","\u{1F3F4}\u{E0067}\u{E0062}\u{E0065}\u{E006E}\u{E0067}\u{E007F}",3],["Brazil","\u{1F1E7}\u{1F1F7}",4],
-  ["Argentina","\u{1F1E6}\u{1F1F7}",5],["Portugal","\u{1F1F5}\u{1F1F9}",6],["Germany","\u{1F1E9}\u{1F1EA}",7],["Netherlands","\u{1F1F3}\u{1F1F1}",8],
-  ["Norway","\u{1F1F3}\u{1F1F4}",9],["Belgium","\u{1F1E7}\u{1F1EA}",10],["Colombia","\u{1F1E8}\u{1F1F4}",11],["United States","\u{1F1FA}\u{1F1F8}",12],
-  ["Morocco","\u{1F1F2}\u{1F1E6}",13],["Uruguay","\u{1F1FA}\u{1F1FE}",14],["Japan","\u{1F1EF}\u{1F1F5}",15],["Croatia","\u{1F1ED}\u{1F1F7}",16],
-  ["Mexico","\u{1F1F2}\u{1F1FD}",17],["Switzerland","\u{1F1E8}\u{1F1ED}",18],["T\u00FCrkiye","\u{1F1F9}\u{1F1F7}",19],["Ecuador","\u{1F1EA}\u{1F1E8}",20],
-  ["Senegal","\u{1F1F8}\u{1F1F3}",21],["Sweden","\u{1F1F8}\u{1F1EA}",22],["Austria","\u{1F1E6}\u{1F1F9}",23],["Canada","\u{1F1E8}\u{1F1E6}",24]
-];
-const WEAK = [
-  ["Paraguay","\u{1F1F5}\u{1F1FE}",25],["Czechia","\u{1F1E8}\u{1F1FF}",26],["Ivory Coast","\u{1F1E8}\u{1F1EE}",27],["Scotland","\u{1F3F4}\u{E0067}\u{E0062}\u{E0073}\u{E0063}\u{E0074}\u{E007F}",28],
-  ["Bosnia & Herz.","\u{1F1E7}\u{1F1E6}",29],["South Korea","\u{1F1F0}\u{1F1F7}",30],["Ghana","\u{1F1EC}\u{1F1ED}",31],["Algeria","\u{1F1E9}\u{1F1FF}",32],
-  ["Egypt","\u{1F1EA}\u{1F1EC}",33],["Australia","\u{1F1E6}\u{1F1FA}",34],["Tunisia","\u{1F1F9}\u{1F1F3}",35],["Iran","\u{1F1EE}\u{1F1F7}",36],
-  ["DR Congo","\u{1F1E8}\u{1F1E9}",37],["Panama","\u{1F1F5}\u{1F1E6}",38],["South Africa","\u{1F1FF}\u{1F1E6}",39],["Uzbekistan","\u{1F1FA}\u{1F1FF}",40],
-  ["Saudi Arabia","\u{1F1F8}\u{1F1E6}",41],["Qatar","\u{1F1F6}\u{1F1E6}",42],["New Zealand","\u{1F1F3}\u{1F1FF}",43],["Jordan","\u{1F1EF}\u{1F1F4}",44],
-  ["Cape Verde","\u{1F1E8}\u{1F1FB}",45],["Iraq","\u{1F1EE}\u{1F1F6}",46],["Haiti","\u{1F1ED}\u{1F1F9}",47],["Cura\u00E7ao","\u{1F1E8}\u{1F1FC}",48]
-];
-
-// Official 2026 group draw (each team appears once; 12 groups of 4).
-const GROUPS = {
-  A:["Mexico","South Korea","Czechia","South Africa"],
-  B:["Switzerland","Canada","Qatar","Bosnia & Herz."],
-  C:["Brazil","Morocco","Scotland","Haiti"],
-  D:["United States","Australia","T\u00FCrkiye","Paraguay"],
-  E:["Germany","Ecuador","Ivory Coast","Cura\u00E7ao"],
-  F:["Netherlands","Japan","Sweden","Tunisia"],
-  G:["Belgium","Iran","Egypt","New Zealand"],
-  H:["Spain","Uruguay","Saudi Arabia","Cape Verde"],
-  I:["France","Senegal","Norway","Iraq"],
-  J:["Argentina","Austria","Algeria","Jordan"],
-  K:["Portugal","Colombia","DR Congo","Uzbekistan"],
-  L:["England","Croatia","Panama","Ghana"]
-};
-// Round-robin pairings within a group of 4 (index pairs).
-const PAIRS = [[0,1],[2,3],[0,2],[1,3],[0,3],[1,2]];
-
-// Lookup: team name -> {flag, rank, tier}
-const TEAM = {};
-STRONG.forEach(t=>TEAM[t[0]]={flag:t[1],rank:t[2],tier:'s'});
-WEAK.forEach(t=>TEAM[t[0]]={flag:t[1],rank:t[2],tier:'w'});
-const ALL_TEAMS = STRONG.concat(WEAK).map(t=>t[0]).sort((a,b)=>a.localeCompare(b));
-
-/* ===================================================================== */
-/*  SCORING MODEL  (cumulative, round by round)                          */
-/*  Player score = STRONG team points + WILDCARD team points.            */
-/*  Each team scores two ways:                                           */
-/*   1. POOL STAGE  win +3 / draw +1, derived from the scorelines        */
-/*      you record for its group fixtures.                               */
-/*   2. KNOCKOUTS   a bonus is ADDED for every round the team reaches     */
-/*      (cumulative, not "furthest only"):                               */
-/*        R32 +3 | R16 +5 | QF +12 | SF +20 | Final +30 | Champ +45      */
-/*      A side reaching the semis keeps pool + R32 + R16 + QF, then adds  */
-/*      the semi bonus. A champion banks 115 in knockout bonuses alone.  */
-/*  How far a team got is DERIVED from the knockout matches you log:      */
-/*  appearing in a round = reached it; winning = advanced to the next.   */
-/* ===================================================================== */
-const POOL_WIN = 3, POOL_DRAW = 1;
-const ROUND_BONUS = { r32:3, r16:5, qf:12, sf:20, final:30, champ:45 };
-const STAGE_ORDER = ["group","r32","r16","qf","sf","final","champ"]; // index = depth reached
-const STAGE_LABEL = {group:"Pool",r32:"R32",r16:"R16",qf:"Quarters",sf:"Semis",final:"Final",champ:"\u{1F3C6} Champions"};
-const KO_LABEL = {r32:"R32",r16:"R16",qf:"QF",sf:"SF",final:"Final"};
-
-/* ===================================================================== */
-/*  STATE                                                                */
-/*   pool: { "A-0-1": [hs, as] }   scores for each group fixture         */
-/*   ko:   [ {round, a, b, as, bs, pen} ]   recorded knockout matches    */
-/* ===================================================================== */
-let STATE = { seed:"", players:[...DEFAULT_PLAYERS], assignments:[], pool:{}, ko:[] };
-
-/* seeded RNG */
-function hashSeed(str){let h=1779033703^str.length;for(let i=0;i<str.length;i++){h=Math.imul(h^str.charCodeAt(i),3432918353);h=h<<13|h>>>19;}return (h^h>>>16)>>>0;}
-function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
-function shuffle(arr, rng){const a=[...arr];for(let i=a.length-1;i>0;i--){const j=Math.floor(rng()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
-
-/* persistence — uses the browser's localStorage when hosted (GitHub Pages,
-   Netlify, etc.) and falls back to Claude's artifact storage if previewed
-   inside Claude. Either way, state lives on the device you use as banker. */
-const STORE_KEY = 'sweepstake:state';
-const HAS_ARTIFACT_STORE = (typeof window !== 'undefined' && window.storage && typeof window.storage.get === 'function');
-async function save(){
-  try{
-    if(HAS_ARTIFACT_STORE) await window.storage.set(STORE_KEY, JSON.stringify(STATE), false);
-    else localStorage.setItem(STORE_KEY, JSON.stringify(STATE));
-    const t=document.getElementById('saveTag'); if(t){t.textContent='\u2713 saved'; setTimeout(()=>t.textContent='',1500);}
-  }catch(e){ console.warn('save failed',e); }
-}
-async function load(){
-  try{
-    let raw=null;
-    if(HAS_ARTIFACT_STORE){ const r=await window.storage.get(STORE_KEY,false); raw=(r&&r.value)?r.value:null; }
-    else raw=localStorage.getItem(STORE_KEY);
-    if(raw){ const s=JSON.parse(raw);
-      STATE={ seed:s.seed||"", players:s.players||[...DEFAULT_PLAYERS], assignments:s.assignments||[],
-              pool:s.pool||{}, ko:s.ko||[] }; }
-  }catch(e){ /* no prior state */ }
-}
-
-/* ===================================================================== */
-/*  DERIVE  — turn recorded results into per-team stats + points         */
-/* ===================================================================== */
-function blank(){ return {w:0,d:0,l:0,gf:0,ga:0,pld:0,reach:0}; }
-function deriveAll(){
-  const d={}; ALL_TEAMS.forEach(n=>d[n]=blank());
-  // pool stage
-  for(const g in GROUPS){
-    const teams=GROUPS[g];
-    PAIRS.forEach(([i,j],k)=>{
-      const sc=STATE.pool[g+'-'+i+'-'+j];
-      if(!sc || sc[0]===null || sc[1]===null || sc[0]==='' || sc[1]==='') return;
-      const a=teams[i], b=teams[j], as=+sc[0], bs=+sc[1];
-      d[a].pld++; d[b].pld++; d[a].gf+=as; d[a].ga+=bs; d[b].gf+=bs; d[b].ga+=as;
-      if(as>bs){d[a].w++; d[b].l++;} else if(bs>as){d[b].w++; d[a].l++;} else {d[a].d++; d[b].d++;}
-    });
-  }
-  // knockout: appearing = reached round; winner = advanced one further
-  STATE.ko.forEach(m=>{
-    const ri=STAGE_ORDER.indexOf(m.round); if(ri<1) return;
-    if(d[m.a]) d[m.a].reach=Math.max(d[m.a].reach,ri);
-    if(d[m.b]) d[m.b].reach=Math.max(d[m.b].reach,ri);
-    let winner=null;
-    if(+m.as>+m.bs) winner=m.a; else if(+m.bs>+m.as) winner=m.b; else if(m.pen) winner=m.pen;
-    if(winner && d[winner]) d[winner].reach=Math.max(d[winner].reach, ri+1);
-  });
-  return d;
-}
-// points for one team given its derived row
-function teamPts(row){
-  if(!row) return 0;
-  let pts = row.w*POOL_WIN + row.d*POOL_DRAW;        // pool stage
-  for(let i=1;i<=row.reach;i++) pts += ROUND_BONUS[STAGE_ORDER[i]]||0;  // cumulative knockout
-  return pts;
-}
-
-/* ===================================================================== */
-/*  DRAW                                                                 */
-/* ===================================================================== */
-function runDraw(){
-  const seed=document.getElementById('seedInput').value.trim();
-  if(!seed){ alert('Enter a seed first \u2014 anything goes, just agree it beforehand.'); return; }
-  const names=document.getElementById('playersBox').value.split('\n').map(s=>s.trim()).filter(Boolean);
-  if(names.length!==24){ if(!confirm('You have '+names.length+' players (24 needed for a clean draw). Continue anyway?')) return; }
-  const rng=mulberry32(hashSeed(seed));
-  const s=shuffle(STRONG,rng), w=shuffle(WEAK,rng);
-  const n=Math.min(names.length,24); const asg=[];
-  for(let i=0;i<n;i++) asg.push({player:names[i], strong:s[i], weak:w[i]});
-  STATE.seed=seed; STATE.players=names; STATE.assignments=asg;
-  save(); renderDraw(); renderBoard();
-}
-
-/* ===================================================================== */
-/*  RENDER                                                               */
-/* ===================================================================== */
-function teamChip(name,tier){ const t=TEAM[name]||{flag:'',rank:''};
-  return '<span class="team"><span class="flag">'+t.flag+'</span>'+name+' <span class="rk '+(tier==='s'?'tier-s':'tier-w')+'">#'+t.rank+'</span></span>'; }
-
-function renderDraw(){
-  document.getElementById('seedInput').value=STATE.seed||'';
-  document.getElementById('playersBox').value=STATE.players.join('\n');
-  const card=document.getElementById('resultCard');
-  if(!STATE.assignments.length){ card.style.display='none'; return; }
-  card.style.display='block';
-  document.getElementById('resultLead').innerHTML='Drawn with seed <b style="color:var(--green);font-family:\'Space Mono\',monospace">"'+STATE.seed+'"</b> \u2014 re-enter it to verify.';
-  let h='<thead><tr><th>Player</th><th>Strong team (1\u201324)</th><th>Wildcard (25\u201348)</th></tr></thead><tbody>';
-  STATE.assignments.forEach(a=>{ h+='<tr><td class="pl-name">'+a.player+'</td><td>'+teamChip(a.strong[0],'s')+'</td><td>'+teamChip(a.weak[0],'w')+'</td></tr>'; });
-  document.getElementById('drawTable').innerHTML=h+'</tbody>';
-}
-
-/* --- Fixtures tab: pool groups (inputs built once) + knockout recorder --- */
-function renderFixtures(){
-  // pool fixtures
-  let h='';
-  for(const g in GROUPS){
-    const teams=GROUPS[g];
-    let body='';
-    PAIRS.forEach(([i,j])=>{
-      const mid=g+'-'+i+'-'+j; const sc=STATE.pool[mid]||['',''];
-      const a=teams[i], b=teams[j];
-      body+='<div class="fix">'
-        +'<div class="ta"><span class="nm2">'+a+'</span><span class="flag">'+TEAM[a].flag+'</span></div>'
-        +'<div class="scbox"><input class="sc" type="number" min="0" data-mid="'+mid+'" data-side="0" value="'+(sc[0]??'')+'">'
-        +'<span class="vs">v</span>'
-        +'<input class="sc" type="number" min="0" data-mid="'+mid+'" data-side="1" value="'+(sc[1]??'')+'"></div>'
-        +'<div class="tb"><span class="flag">'+TEAM[b].flag+'</span><span class="nm2">'+b+'</span></div>'
-        +'</div>';
-    });
-    h+='<details class="grp"><summary>Group '+g+' <span class="caret">tap</span></summary>'
-      +'<div class="body">'+body+'<div class="stand-wrap" data-grp="'+g+'"></div></div></details>';
-  }
-  document.getElementById('poolWrap').innerHTML=h;
-
-  // knockout team selectors
-  const opts='<option value="">\u2014 team \u2014</option>'+ALL_TEAMS.map(n=>'<option value="'+n+'">'+TEAM[n].flag+'  '+n+'</option>').join('');
-  document.getElementById('koA').innerHTML=opts;
-  document.getElementById('koB').innerHTML=opts;
-  document.getElementById('koPen').innerHTML='<option value="">If drawn, won on pens by\u2026</option>'+ALL_TEAMS.map(n=>'<option value="'+n+'">'+n+'</option>').join('');
-
-  renderKoList();
-  refreshDerived();
-}
-
-function renderKoList(){
-  const el=document.getElementById('koList');
-  if(!STATE.ko.length){ el.innerHTML='<p class="ko-emptynote">No knockout results yet. They start with the Round of 32 on 28 June.</p>'; return; }
-  // group by round in tournament order
-  let h='';
-  STAGE_ORDER.slice(1).forEach(rd=>{
-    const ms=STATE.ko.map((m,idx)=>({m,idx})).filter(x=>x.m.round===rd);
-    ms.forEach(({m,idx})=>{
-      const aWon=(+m.as>+m.bs)||(m.as===m.bs&&m.pen===m.a);
-      const bWon=(+m.bs>+m.as)||(m.as===m.bs&&m.pen===m.b);
-      const pens=(m.as===m.bs&&m.pen)?' <span class="rk">(pens '+m.pen+')</span>':'';
-      h+='<div class="kom"><span class="round-tag">'+KO_LABEL[rd]+'</span>'
-        +'<span class="res"><span class="'+(aWon?'won':'')+'">'+TEAM[m.a].flag+' '+m.a+'</span> '
-        +'<span class="sc-txt">'+m.as+'\u2013'+m.bs+'</span> '
-        +'<span class="'+(bWon?'won':'')+'">'+m.b+' '+TEAM[m.b].flag+'</span>'+pens+'</span>'
-        +'<button class="del" data-koidx="'+idx+'" title="Delete">\u00D7</button></div>';
-    });
-  });
-  el.innerHTML=h;
-}
-
-// Recompute standings tables + leaderboard WITHOUT touching the score inputs (keeps focus).
-function refreshDerived(){
-  const d=deriveAll();
-  // standings per group
-  document.querySelectorAll('.stand-wrap').forEach(wrap=>{
-    const g=wrap.dataset.grp; const rows=GROUPS[g].map(n=>({n,...d[n], gd:d[n].gf-d[n].ga, pts:d[n].w*3+d[n].d}));
-    rows.sort((x,y)=> y.pts-x.pts || y.gd-x.gd || y.gf-x.gf || x.n.localeCompare(y.n));
-    let t='<table class="stand"><thead><tr><th>#</th><th>Team</th><th class="num">P</th><th class="num">W</th><th class="num">D</th><th class="num">L</th><th class="num">GF</th><th class="num">GA</th><th class="num">GD</th><th class="num">Pts</th></tr></thead><tbody>';
-    rows.forEach((r,i)=>{ const cls=i<2?'pos'+(i+1):(i===2?'pos3':'');
-      t+='<tr class="'+cls+'"><td class="num">'+(i+1)+'</td><td><span class="tn"><span class="flag">'+TEAM[r.n].flag+'</span>'+r.n+'</span></td>'
-        +'<td class="num">'+r.pld+'</td><td class="num">'+r.w+'</td><td class="num">'+r.d+'</td><td class="num">'+r.l+'</td>'
-        +'<td class="num">'+r.gf+'</td><td class="num">'+r.ga+'</td><td class="num">'+(r.gd>0?'+':'')+r.gd+'</td><td class="num" style="color:var(--green);font-weight:700">'+r.pts+'</td></tr>'; });
-    wrap.innerHTML=t+'</tbody></table>';
-  });
-  renderBoard(d);
-}
-
-function renderBoard(d){
-  d=d||deriveAll();
-  const lb=document.getElementById('lbTable');
-  if(!STATE.assignments.length){ lb.innerHTML='<tbody><tr><td><div class="empty">Run the draw to start the scoreboard.</div></td></tr></tbody>'; return; }
-  const rows=STATE.assignments.map(a=>{
-    const sp=teamPts(d[a.strong[0]]), wp=teamPts(d[a.weak[0]]);
-    const gf=(d[a.strong[0]].gf||0)+(d[a.weak[0]].gf||0);
-    return {player:a.player, strong:a.strong[0], weak:a.weak[0], sp, wp, total:sp+wp, gf};
-  });
-  rows.sort((x,y)=> y.total-x.total || y.gf-x.gf || y.sp-x.sp);
-  let bestWild=-1; rows.forEach(r=>{ if(r.wp>bestWild) bestWild=r.wp; });
-  let h='<thead><tr><th>#</th><th>Player</th><th>Strong</th><th>Wildcard</th><th style="text-align:right">Str</th><th style="text-align:right">Wild</th><th style="text-align:right">Total</th><th style="text-align:right">GF</th></tr></thead><tbody>';
-  rows.forEach((r,i)=>{ const pos=i+1; let prize='';
-    if(pos===1) prize='<span class="prize">R3 000</span>'; else if(pos===2) prize='<span class="prize">R1 500</span>'; else if(pos===3) prize='<span class="prize">R900</span>';
-    const wild=(r.wp===bestWild&&bestWild>0)?'<span class="prize wild">R600</span>':'';
-    h+='<tr><td class="lb-rank '+(pos<=3?'p'+pos:'')+'">'+pos+'</td>'
-      +'<td class="pl-name">'+r.player+prize+wild+'</td>'
-      +'<td>'+teamChip(r.strong,'s')+'</td><td>'+teamChip(r.weak,'w')+'</td>'
-      +'<td class="pts">'+r.sp+'</td><td class="pts">'+r.wp+'</td><td class="pts tot">'+r.total+'</td><td class="gf">'+r.gf+'</td></tr>'; });
-  lb.innerHTML=h+'</tbody>';
-}
-
-/* ===================================================================== */
-/*  EVENTS                                                               */
-/* ===================================================================== */
-document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{
-  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
-  document.querySelectorAll('.view').forEach(x=>x.classList.remove('active'));
-  t.classList.add('active'); document.getElementById(t.dataset.view).classList.add('active');
-}));
-document.getElementById('drawBtn').addEventListener('click',runDraw);
-document.getElementById('randSeed').addEventListener('click',()=>{ document.getElementById('seedInput').value='draw-'+Math.random().toString(36).slice(2,8); });
-
-// pool score entry — update state + standings + board, leave inputs alone
-document.getElementById('poolWrap').addEventListener('input',e=>{
-  const inp=e.target.closest('.sc'); if(!inp) return;
-  const mid=inp.dataset.mid, side=+inp.dataset.side;
-  const cur=STATE.pool[mid]||['',''];
-  cur[side]= inp.value===''?'':Math.max(0, parseInt(inp.value,10)||0);
-  STATE.pool[mid]=cur; save(); refreshDerived();
-});
-
-// knockout: add result
-document.getElementById('koAdd').addEventListener('click',()=>{
-  const round=document.getElementById('koRound').value;
-  const a=document.getElementById('koA').value, b=document.getElementById('koB').value;
-  const as=document.getElementById('koAS').value, bs=document.getElementById('koBS').value;
-  const pen=document.getElementById('koPen').value;
-  if(!a||!b){ alert('Pick both teams.'); return; }
-  if(a===b){ alert('A team can\u2019t play itself.'); return; }
-  if(as===''||bs===''){ alert('Enter both scores.'); return; }
-  if(+as===+bs && !pen){ if(!confirm('Knockouts can\u2019t end level. Add anyway with no winner advancing?')){} }
-  STATE.ko.push({round, a, b, as:+as, bs:+bs, pen: (+as===+bs?pen:'')});
-  // reset score inputs for quick entry
-  document.getElementById('koAS').value=''; document.getElementById('koBS').value=''; document.getElementById('koPen').value='';
-  save(); renderKoList(); refreshDerived();
-});
-// knockout: delete
-document.getElementById('koList').addEventListener('click',e=>{
-  const btn=e.target.closest('.del'); if(!btn) return;
-  STATE.ko.splice(+btn.dataset.koidx,1); save(); renderKoList(); refreshDerived();
-});
-
-/* init */
-(async function(){
-  await load();
-  renderDraw(); renderFixtures(); renderBoard();
-})();
-</script>
+<script>document.getElementById('adminLock').addEventListener('click',()=>{var r=document.getElementById('adminLoginRow');r.style.display=r.style.display==='none'?'inline':'none';});</script>
+<script type="module" src="/app.js"></script>
 </body>
 </html>
