@@ -5,7 +5,7 @@ import { TEAM, GROUPS, PAIRS, ALL_TEAMS, STAGE_ORDER, KO_LABEL, POOL_WIN, MATCH_
 import { deriveAll, teamPts, standingsFor, leaderboardRows } from '/lib/scoring.js';
 import { computeAssignments } from '/lib/draw.js';
 
-let STATE = { locked: false, seed: null, players: [], assignments: null, pool: {}, ko: [] };
+let STATE = { locked: false, seed: null, paymentsEnabled: false, players: [], assignments: null, pool: {}, ko: [] };
 let POLL = null;
 
 const $ = id => document.getElementById(id);
@@ -102,7 +102,7 @@ function renderOnboarding() {
   $('confirmCount').textContent = confirmed + ' / ' + STATE.players.length + ' confirmed';
   const admin = isAdmin();
   $('rosterList').innerHTML = STATE.players.map(p => {
-    const pay = (p.confirmed && !p.paid)
+    const pay = (STATE.paymentsEnabled && p.confirmed && !p.paid)
       ? '<button class="act go pay-btn" data-pay="' + esc(p.name) + '" style="padding:6px 12px;font-size:11px">Pay R250</button>'
       : '';
     // Admin: toggle a player's confirmation (clear a mistaken "I'm in", or mark someone in).
@@ -126,6 +126,9 @@ function renderOnboarding() {
   // Once the draw is locked the roster must not be editable (server guards this too).
   if ($('rosterEditBox')) $('rosterEditBox').readOnly = !!STATE.locked;
   if ($('rosterSaveBtn')) $('rosterSaveBtn').disabled = !!STATE.locked;
+  // Payments on/off toggle state
+  if ($('paymentsState')) $('paymentsState').textContent = STATE.paymentsEnabled ? 'ON' : 'off';
+  if ($('paymentsToggle')) $('paymentsToggle').textContent = STATE.paymentsEnabled ? 'Disable payments' : 'Enable payments';
 }
 
 /* ===================================================================== */
@@ -437,6 +440,12 @@ on('rosterSaveBtn', 'click', async () => {
     await refresh();
     return;
   }
+  await refresh();
+});
+
+// Admin: toggle in-app payments on/off
+on('paymentsToggle', 'click', async () => {
+  await post('/api/admin/payments', { enabled: !STATE.paymentsEnabled }, true);
   await refresh();
 });
 

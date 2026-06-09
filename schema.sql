@@ -1,10 +1,11 @@
 -- Run once against the Neon database.
 CREATE TABLE IF NOT EXISTS game (
-  id          text PRIMARY KEY,
-  seed        text,
-  locked      boolean NOT NULL DEFAULT false,
-  assignments jsonb,
-  created_at  timestamptz NOT NULL DEFAULT now()
+  id               text PRIMARY KEY,
+  seed             text,
+  locked           boolean NOT NULL DEFAULT false,
+  assignments      jsonb,
+  payments_enabled boolean NOT NULL DEFAULT false,  -- in-app Stitch payments on/off
+  created_at       timestamptz NOT NULL DEFAULT now()
 );
 
 CREATE TABLE IF NOT EXISTS players (
