@@ -188,8 +188,9 @@
       </div>
       <div id="rosterList" class="ko-list" style="margin-top:16px"></div>
     </div>
-    <!-- admin-only: roster editor + run draw -->
-    <div class="card" id="adminBar" style="display:none">
+    <!-- admin-only: roster editor + run draw (visibility via body.admin in CSS;
+         no inline display style, which would override the stylesheet rule) -->
+    <div class="card" id="adminBar">
       <h2>Banker controls</h2>
       <label class="fld">Roster (one name per line)</label>
       <textarea id="rosterEditBox" rows="8"></textarea>
