@@ -222,6 +222,7 @@
     <button class="tab active" data-view="draw">The Draw</button>
     <button class="tab" data-view="fixtures">Fixtures &amp; Results</button>
     <button class="tab" data-view="board">Scoreboard</button>
+    <button class="tab" data-view="rankings">Rankings</button>
     <button class="tab" data-view="rules">How it works</button>
   </nav>
 
@@ -281,6 +282,15 @@
       <h2>Leaderboard</h2>
       <p class="lead">Score = your strong team + your wildcard team, both updating live from the results you record. Ties break on combined goals scored.</p>
       <div style="overflow-x:auto"><table id="lbTable"></table></div>
+    </div>
+  </section>
+
+  <!-- ============ RANKINGS ============ -->
+  <section class="view" id="rankings">
+    <div class="card">
+      <h2>How the teams rank</h2>
+      <p class="lead">Our seeding (the <b style="color:var(--green)">#</b> column) is based on bookmaker title odds, so it tracks <b>Bookies</b> closely. <b>FIFA</b> and <b>Elo</b> are world-strength rankings (all teams, not just these 48) &mdash; handy for spotting a side the odds rate higher or lower than its form suggests. <span class="tier-s">S</span> = strong pool (1&ndash;24), <span class="tier-w">W</span> = wildcard (25&ndash;48).</p>
+      <div style="overflow-x:auto"><table id="rankTable"></table></div>
     </div>
   </section>
 
