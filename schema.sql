@@ -8,11 +8,13 @@ CREATE TABLE IF NOT EXISTS game (
 );
 
 CREATE TABLE IF NOT EXISTS players (
-  id        serial PRIMARY KEY,
-  name      text UNIQUE NOT NULL,
-  position  int NOT NULL DEFAULT 0,
-  confirmed boolean NOT NULL DEFAULT false,
-  paid      boolean NOT NULL DEFAULT false
+  id          serial PRIMARY KEY,
+  name        text UNIQUE NOT NULL,
+  position    int NOT NULL DEFAULT 0,
+  confirmed   boolean NOT NULL DEFAULT false,
+  paid        boolean NOT NULL DEFAULT false,
+  payment_ref text,  -- Stitch externalReference tying a payment to this player
+  payment_id  text   -- Stitch payment-request id
 );
 
 CREATE TABLE IF NOT EXISTS pool_results (

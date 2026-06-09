@@ -264,3 +264,41 @@ From the earlier review of `index.html`, fix while porting:
 - The "knockout ended level" confirm with an empty `if` body — make Cancel abort.
 - `koPen` dropdown should list only the two selected teams, not all 48.
 - Escape player names on render (avoid HTML injection from roster input).
+
+## 11. Addendum — Stitch payments (self-pay, auto-confirm)
+
+Players pay their R250 entry in-app via **Stitch** (Card + Apple Pay, Stitch-hosted
+UI); a verified webhook flips `players.paid` automatically. The banker can still
+override `paid` via `/api/admin/paid`.
+
+**Flow:** onboarding "Pay R250" → `POST /api/pay {name}` (server creates a Stitch
+payment request, stores its reference, returns the hosted-checkout URL) → browser
+redirects to Stitch → payer pays → Stitch posts to `POST /api/stitch/webhook` →
+signature verified → on completion `paid=true` for the matching player. The
+return-redirect `status` is informational only; the **webhook is authoritative**
+(per Stitch docs). The 7s poll surfaces the ✓ to everyone.
+
+**Stitch contract (REST v2):**
+- Auth: `POST https://secure.stitch.money/connect/token`, `application/x-www-form-urlencoded`,
+  `grant_type=client_credentials`, `client_id`, `client_secret`,
+  `scope=client_paymentrequest`, `audience=https://secure.stitch.money/connect/token`
+  → `{ access_token, expires_in, token_type:"Bearer" }`.
+- Create: `POST https://api.stitch.money/v2/payment-requests`, `Authorization: Bearer`,
+  body `{ amount:{currency:"ZAR", quantity:250}, externalReference, expireAt,
+  payer:{identifier}, paymentMethods:{ card:{ enabled:true, applePay:{ enabled:true } } } }`
+  → `{ id, status:"pending", interaction:{ type:"redirect", url } }`. Append a
+  whitelisted `redirect_uri` to `interaction.url` and send the payer there.
+- Webhook: payload `data.client.paymentInitiationRequests.node` (+ `eventId`,`time`);
+  verify `X-Stitch-Signature: t=<ts>,hmac_sha256=<hash>` as HMAC-SHA256 of
+  `"<ts>.<rawBody>"` with the webhook secret, constant-time compare; respond 2XX.
+
+**Env vars (Vercel, server-only):** `STITCH_CLIENT_ID`, `STITCH_CLIENT_SECRET`,
+`STITCH_WEBHOOK_SECRET`. No beneficiary bank details (card/Apple Pay don't need them).
+
+**Schema migration:** `ALTER TABLE players ADD COLUMN payment_ref text, ADD COLUMN
+payment_id text;` (+ same in `schema.sql` for fresh installs).
+
+**Manual setup (Stitch dashboard):** whitelist the redirect URI (`https://<site>/?pay=return`)
+and create one webhook subscription → `https://<site>/api/stitch/webhook` with the secret.
+
+**Caveat:** live payment leg untestable until sandbox client credentials are provided.

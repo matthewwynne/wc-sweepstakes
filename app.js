@@ -71,7 +71,11 @@ function renderOnboarding() {
   $('rosterList').innerHTML = STATE.players.map(p =>
     '<div class="rrow"><span>' + esc(p.name) + '</span>'
     + '<span class="rstatus">' + (p.confirmed ? '✓ in' : '—')
-    + (p.paid ? ' · \u{1F4B0} paid' : '') + '</span></div>').join('');
+    + (p.paid ? ' · \u{1F4B0} paid' : '') + '</span>'
+    + (p.confirmed && !p.paid
+        ? '<button class="act go pay-btn" data-pay="' + esc(p.name) + '" style="padding:6px 12px;font-size:11px">Pay R250</button>'
+        : '')
+    + '</div>').join('');
   $('nameSelect').innerHTML = '<option value="">— pick your name —</option>'
     + STATE.players.filter(p => !p.confirmed).map(p => '<option>' + esc(p.name) + '</option>').join('');
   // admin: roster editor (only repopulate when not focused so edits aren't clobbered)
@@ -252,6 +256,17 @@ on('confirmBtn', 'click', async () => {
   await refresh();
 });
 
+// Onboarding: player self-pay (public) — redirects to Stitch hosted checkout
+$('rosterList').addEventListener('click', async e => {
+  const btn = e.target.closest('.pay-btn'); if (!btn) return;
+  btn.disabled = true; btn.textContent = 'Redirecting…';
+  try {
+    const r = await post('/api/pay', { name: btn.dataset.pay });
+    if (r && r.url) { window.location.href = r.url; }
+    else { alert('Could not start payment: ' + ((r && r.error) || 'unknown')); btn.disabled=false; btn.textContent='Pay R250'; }
+  } catch (err) { alert('Payment error.'); btn.disabled=false; btn.textContent='Pay R250'; }
+});
+
 // Seed gate: enter the agreed seed to verify + unlock
 on('gateEnterBtn', 'click', () => {
   const typed = $('gateSeedInput').value.trim();
@@ -357,4 +372,13 @@ function startPolling() {
   }, 7000);
 }
 
-(async function () { await refresh(); startPolling(); })();
+// If we just came back from Stitch, show a transient note (webhook is authoritative;
+// the 7s poll will flip the ✓ to paid). Clean the URL so it doesn't re-trigger.
+function handlePayReturn() {
+  if (new URLSearchParams(location.search).get('pay') !== 'return') return;
+  if ($('confirmCount')) $('confirmCount').textContent = '✓ Thanks — confirming your payment, it’ll show as paid shortly.';
+  else alert('✓ Thanks — confirming your payment, it’ll show as paid shortly.');
+  history.replaceState({}, '', location.pathname);
+}
+
+(async function () { await refresh(); handlePayReturn(); startPolling(); })();
