@@ -1,7 +1,7 @@
 // Client logic for the shared sweepstake. Loaded as <script type="module" src="/app.js">.
 // Sources all data from GET /api/state; writes go through /api; admin writes carry
 // the x-admin-key header. Pure logic (teams, scoring, draw) is imported from /lib.
-import { TEAM, GROUPS, PAIRS, ALL_TEAMS, STAGE_ORDER, KO_LABEL, POOL_WIN, MATCH_DATES, KO_DATES } from '/lib/teams.js';
+import { TEAM, GROUPS, PAIRS, ALL_TEAMS, STAGE_ORDER, KO_LABEL, POOL_WIN, MATCH_DATES, KO_DATES, RANKINGS } from '/lib/teams.js';
 import { deriveAll, teamPts, standingsFor, leaderboardRows } from '/lib/scoring.js';
 import { computeAssignments } from '/lib/draw.js';
 
@@ -462,4 +462,24 @@ function handlePayReturn() {
   history.replaceState({}, '', location.pathname);
 }
 
-(async function () { await refresh(); handlePayReturn(); startPolling(); })();
+// Static three-way ranking comparison (our seeding vs bookies vs FIFA vs Elo),
+// ordered by our seed rank. Built once — the data never changes during the run.
+function renderRankings() {
+  const el = $('rankTable'); if (!el) return;
+  const rows = ALL_TEAMS
+    .map(n => ({ n, tier: TEAM[n].tier, our: TEAM[n].rank, ...(RANKINGS[n] || {}) }))
+    .sort((a, b) => a.our - b.our);
+  let h = '<thead><tr><th>#</th><th>Team</th><th class="num" style="text-align:right">Bookies</th>'
+    + '<th class="num" style="text-align:right">FIFA</th><th class="num" style="text-align:right">Elo</th></tr></thead><tbody>';
+  rows.forEach(r => {
+    h += '<tr><td class="rk">' + r.our + '</td>'
+      + '<td><span class="team"><span class="flag">' + TEAM[r.n].flag + '</span>' + esc(r.n)
+      + ' <span class="rk ' + (r.tier === 's' ? 'tier-s' : 'tier-w') + '">' + (r.tier === 's' ? 'S' : 'W') + '</span></span></td>'
+      + '<td class="num" style="text-align:right" title="' + (r.price != null ? r.price + ' to win' : '') + '">' + (r.bookies ?? '–') + '</td>'
+      + '<td class="num" style="text-align:right">' + (r.fifa ?? '–') + '</td>'
+      + '<td class="num" style="text-align:right">' + (r.elo ?? '–') + '</td></tr>';
+  });
+  el.innerHTML = h + '</tbody>';
+}
+
+(async function () { renderRankings(); await refresh(); handlePayReturn(); startPolling(); })();
