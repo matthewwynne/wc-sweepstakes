@@ -9,5 +9,8 @@
   "dependencies": {
     "@neondatabase/serverless": "^0.10.4",
     "svix": "^1.95.2"
+  },
+  "engines": {
+    "node": "22.x"
   }
 }
