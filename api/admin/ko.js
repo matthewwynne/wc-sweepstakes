@@ -13,6 +13,9 @@ export default async function handler(req, res){
   const { round, a, b } = body;
   if (!round || !a || !b) return res.status(400).json({ error: 'round_teams_required' });
   if (a === b) return res.status(400).json({ error: 'same_team' });
-  const id = await addKo({ round, a, b, as: body.as, bs: body.bs, pen: body.pen });
+  const sa = Number(body.as), sb = Number(body.bs);
+  if (!Number.isInteger(sa) || sa < 0 || !Number.isInteger(sb) || sb < 0)
+    return res.status(400).json({ error: 'invalid_score' });
+  const id = await addKo({ round, a, b, as: sa, bs: sb, pen: body.pen });
   res.status(200).json({ id });
 }

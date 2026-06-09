@@ -1,5 +1,5 @@
 import { markPaidByLinkId } from '../../lib/db.js';
-import { verifyWebhook } from '../../lib/stitch.js';
+import { verifyWebhook, ENTRY_CENTS } from '../../lib/stitch.js';
 
 export default async function handler(req, res){
   if (req.method !== 'POST'){ res.status(405).json({ error: 'method_not_allowed' }); return; }
@@ -25,6 +25,14 @@ export default async function handler(req, res){
   const isPaidLink = payload && payload.status === 'PAID' && payload.type === 'LINK' && payload.linkId;
   if (!isPaidLink){
     res.status(200).json({ ok: true }); // nothing to record — ack so Svix doesn't retry
+    return;
+  }
+
+  // Defense-in-depth: confirm the paid amount matches the entry fee before crediting a
+  // player. A correctly-delivered event with the wrong amount isn't a transient failure,
+  // so ack with 200 (don't trigger Svix retries) but skip the DB write.
+  if (payload.amount !== ENTRY_CENTS){
+    res.status(200).json({ ok: true, note: 'amount_mismatch' });
     return;
   }
 
