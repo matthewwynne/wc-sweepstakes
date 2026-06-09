@@ -90,7 +90,10 @@ function renderOnboarding() {
 function verifyBadge() {
   if (!STATE.seed || !STATE.assignments) return '';
   const recomputed = computeAssignments(STATE.seed, STATE.players.map(p => p.name));
-  const ok = JSON.stringify(recomputed) === JSON.stringify(STATE.assignments);
+  // Compare canonically: jsonb reorders object keys on storage, so a raw
+  // JSON.stringify would mismatch identical draws. Compare player→teams tuples.
+  const norm = a => a.map(x => x.player + '|' + x.strong[0] + '|' + x.weak[0]).join(';');
+  const ok = norm(recomputed) === norm(STATE.assignments);
   return ok ? '<span class="prize">✓ verified — matches the seed</span>'
             : '<span class="prize wild">⚠ does not match seed</span>';
 }
