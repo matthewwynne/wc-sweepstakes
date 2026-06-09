@@ -2,9 +2,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { deriveAll, teamPts } from '../lib/scoring.js';
 
-// France & Iraq are both in Group I (index 0 and 3) per teams.js GROUPS.
+// France (index 0) & Iraq (index 2) are both in Group I per teams.js GROUPS;
+// PAIRS[2]=[0,2] → match id "I-0-2".
 test('pool win/draw points derive from scorelines', () => {
-  const d = deriveAll({ pool: { 'I-0-3': [2,0] }, ko: [] });
+  const d = deriveAll({ pool: { 'I-0-2': [2,0] }, ko: [] });
   assert.equal(d['France'].w, 1);
   assert.equal(d['Iraq'].l, 1);
   assert.equal(teamPts(d['France']), 3); // one win

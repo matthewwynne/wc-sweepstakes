@@ -1,7 +1,7 @@
 // Client logic for the shared sweepstake. Loaded as <script type="module" src="/app.js">.
 // Sources all data from GET /api/state; writes go through /api; admin writes carry
 // the x-admin-key header. Pure logic (teams, scoring, draw) is imported from /lib.
-import { TEAM, GROUPS, PAIRS, ALL_TEAMS, STAGE_ORDER, KO_LABEL, POOL_WIN } from '/lib/teams.js';
+import { TEAM, GROUPS, PAIRS, ALL_TEAMS, STAGE_ORDER, KO_LABEL, POOL_WIN, MATCH_DATES } from '/lib/teams.js';
 import { deriveAll, teamPts, standingsFor, leaderboardRows } from '/lib/scoring.js';
 import { computeAssignments } from '/lib/draw.js';
 
@@ -12,6 +12,15 @@ const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); // §10 fix
 function adminKey() { return sessionStorage.getItem('sweep:admin') || ''; }
 function isAdmin() { return !!adminKey(); }
+
+// Format an ISO date (YYYY-MM-DD) as e.g. "Thu 11 Jun" — parsed at noon UTC so the
+// calendar day never shifts with the viewer's timezone.
+function fmtMatchDate(iso) {
+  const d = new Date(iso + 'T12:00:00Z');
+  const wd = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][d.getUTCDay()];
+  const mo = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][d.getUTCMonth()];
+  return wd + ' ' + d.getUTCDate() + ' ' + mo;
+}
 
 /* ===================================================================== */
 /*  API HELPERS                                                          */
@@ -160,10 +169,12 @@ function buildFixturesScaffold() {
   for (const g in GROUPS) {
     const teams = GROUPS[g];
     let body = '';
-    PAIRS.forEach(([i, j]) => {
+    PAIRS.forEach(([i, j], k) => {
       const mid = g + '-' + i + '-' + j;
       const sc = STATE.pool[mid] || ['', ''];
       const a = teams[i], b = teams[j];
+      const dt = (MATCH_DATES[g] || [])[k];
+      if (dt) body += '<div style="text-align:center;font-family:\'Space Mono\',monospace;font-size:10px;letter-spacing:1px;color:var(--muted);margin-top:8px">' + fmtMatchDate(dt) + '</div>';
       body += '<div class="fix">'
         + '<div class="ta"><span class="nm2">' + esc(a) + '</span><span class="flag">' + TEAM[a].flag + '</span></div>'
         + '<div class="scbox"><input class="sc" type="number" min="0" data-mid="' + mid + '" data-side="0" value="' + (sc[0] ?? '') + '"' + disabled + '>'
