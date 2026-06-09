@@ -375,7 +375,9 @@ function startPolling() {
 // If we just came back from Stitch, show a transient note (webhook is authoritative;
 // the 7s poll will flip the ✓ to paid). Clean the URL so it doesn't re-trigger.
 function handlePayReturn() {
-  if (new URLSearchParams(location.search).get('pay') !== 'return') return;
+  // Stitch Express appends ?reference=...&payment_id=... to the registered redirect URL.
+  const q = new URLSearchParams(location.search);
+  if (!q.get('payment_id') && !q.get('reference')) return;
   if ($('confirmCount')) $('confirmCount').textContent = '✓ Thanks — confirming your payment, it’ll show as paid shortly.';
   else alert('✓ Thanks — confirming your payment, it’ll show as paid shortly.');
   history.replaceState({}, '', location.pathname);

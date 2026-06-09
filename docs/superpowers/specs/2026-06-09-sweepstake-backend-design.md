@@ -265,40 +265,52 @@ From the earlier review of `index.html`, fix while porting:
 - `koPen` dropdown should list only the two selected teams, not all 48.
 - Escape player names on render (avoid HTML injection from roster input).
 
-## 11. Addendum — Stitch payments (self-pay, auto-confirm)
+## 11. Addendum — Stitch **Express** payments (self-pay, auto-confirm)
 
-Players pay their R250 entry in-app via **Stitch** (Card + Apple Pay, Stitch-hosted
-UI); a verified webhook flips `players.paid` automatically. The banker can still
-override `paid` via `/api/admin/paid`.
+Players pay their R250 entry in-app via **Stitch Express**; a Svix-verified webhook
+flips `players.paid` automatically. The banker can still override `paid` via
+`/api/admin/paid`.
 
-**Flow:** onboarding "Pay R250" → `POST /api/pay {name}` (server creates a Stitch
-payment request, stores its reference, returns the hosted-checkout URL) → browser
-redirects to Stitch → payer pays → Stitch posts to `POST /api/stitch/webhook` →
-signature verified → on completion `paid=true` for the matching player. The
-return-redirect `status` is informational only; the **webhook is authoritative**
-(per Stitch docs). The 7s poll surfaces the ✓ to everyone.
+> **Important:** this targets the **Stitch Express REST API** at
+> `https://express.stitch.money/api/v1` — a *separate product* from the Stitch
+> Enterprise/Connect GraphQL API at `api.stitch.money`. Express is built around
+> **payment links**, amounts are in **ZAR cents**, tokens last **15 min**, and
+> webhooks are delivered via **Svix**. The hosted checkout chooses payment methods
+> (no card/Apple-Pay flags in the request).
 
-**Stitch contract (REST v2):**
-- Auth: `POST https://secure.stitch.money/connect/token`, `application/x-www-form-urlencoded`,
-  `grant_type=client_credentials`, `client_id`, `client_secret`,
-  `scope=client_paymentrequest`, `audience=https://secure.stitch.money/connect/token`
-  → `{ access_token, expires_in, token_type:"Bearer" }`.
-- Create: `POST https://api.stitch.money/v2/payment-requests`, `Authorization: Bearer`,
-  body `{ amount:{currency:"ZAR", quantity:250}, externalReference, expireAt,
-  payer:{identifier}, paymentMethods:{ card:{ enabled:true, applePay:{ enabled:true } } } }`
-  → `{ id, status:"pending", interaction:{ type:"redirect", url } }`. Append a
-  whitelisted `redirect_uri` to `interaction.url` and send the payer there.
-- Webhook: payload `data.client.paymentInitiationRequests.node` (+ `eventId`,`time`);
-  verify `X-Stitch-Signature: t=<ts>,hmac_sha256=<hash>` as HMAC-SHA256 of
-  `"<ts>.<rawBody>"` with the webhook secret, constant-time compare; respond 2XX.
+**Flow:** onboarding "Pay R250" → `POST /api/pay {name}` (server mints a 15-min
+token, creates a payment link, stores the link id, returns the checkout URL with our
+registered `redirect_url` appended) → browser redirects to the Stitch checkout →
+payer pays → Stitch posts to `POST /api/stitch/webhook` → **Svix signature
+verified** → on `payment.paid` (type `LINK`) `paid=true` for the player whose stored
+link id matches `linkId`. The return redirect is informational; the **webhook is
+authoritative**. The 7s poll surfaces the ✓ to everyone.
+
+**Stitch Express contract (`/api/v1`):**
+- Auth: `POST /token`, JSON `{ clientId, clientSecret, scope? }`
+  → `{ success, data:{ accessToken } }` (JWT, 15-min, `Authorization: Bearer`).
+- Create: `POST /payment-links`, Bearer, JSON `{ amount:25000 (cents), payerName (3–40),
+  merchantReference }` → `{ data:{ payment:{ id, link, status, ... } } }`. The checkout
+  URL is `data.payment.link`; append `?redirect_url=<encoded, pre-registered origin>`.
+- Webhook (Svix): payload `{ amount, id, status:"PAID", type:"LINK", linkId, ... }`;
+  verify headers `svix-id`/`svix-timestamp`/`svix-signature` against the RAW body using
+  the `svix` library + the signing secret; respond 2XX. Map `linkId` → stored
+  `players.payment_id`. Handler is idempotent.
+- Fallback if webhooks unavailable: poll `GET /payment/{id}` (status `PAID`/`SETTLED`).
 
 **Env vars (Vercel, server-only):** `STITCH_CLIENT_ID`, `STITCH_CLIENT_SECRET`,
-`STITCH_WEBHOOK_SECRET`. No beneficiary bank details (card/Apple Pay don't need them).
+`STITCH_WEBHOOK_SECRET` (the `whsec_…` returned when registering the webhook),
+`SITE_URL` (the registered redirect origin, e.g. the production URL). No beneficiary
+bank details needed.
 
-**Schema migration:** `ALTER TABLE players ADD COLUMN payment_ref text, ADD COLUMN
-payment_id text;` (+ same in `schema.sql` for fresh installs).
+**Schema:** `players.payment_ref` (our `merchantReference`) + `players.payment_id`
+(the Stitch payment-link id) — already applied to Neon and in `schema.sql`.
 
-**Manual setup (Stitch dashboard):** whitelist the redirect URI (`https://<site>/?pay=return`)
-and create one webhook subscription → `https://<site>/api/stitch/webhook` with the secret.
+**One-time Stitch setup (Bearer token required, via dashboard or API):**
+- `POST /api/v1/redirect-urls { redirectUrl }` — register the site origin **without a
+  trailing slash / query** (`https://<site>`); max 5, byte-exact match.
+- `POST /api/v1/webhook { url }` → `https://<site>/api/stitch/webhook`; store the
+  returned `secret` as `STITCH_WEBHOOK_SECRET`.
 
-**Caveat:** live payment leg untestable until sandbox client credentials are provided.
+**Caveat:** live payment leg untestable until client credentials (test- prefixed)
+are provided.
