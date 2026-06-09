@@ -16,7 +16,20 @@ function isAdmin() { return !!adminKey(); }
 /* ===================================================================== */
 /*  API HELPERS                                                          */
 /* ===================================================================== */
-async function getState() { const r = await fetch('/api/state'); return r.json(); }
+async function getStateText() { const r = await fetch('/api/state'); return r.text(); }
+async function getState() { return JSON.parse(await getStateText()); }
+
+// Cache the raw text of the last state we rendered so the poll can skip a full
+// re-render when nothing changed. force=true always renders (used by refresh()).
+let lastStateText = null;
+async function syncState(force) {
+  const txt = await getStateText();
+  if (!force && txt === lastStateText) return false; // byte-identical → skip render
+  lastStateText = txt;
+  STATE = JSON.parse(txt);
+  renderAll();
+  return true;
+}
 
 async function post(path, body, admin = false) {
   const headers = { 'Content-Type': 'application/json' };
@@ -34,7 +47,7 @@ async function post(path, body, admin = false) {
   return r.json();
 }
 
-async function refresh() { STATE = await getState(); renderAll(); }
+async function refresh() { await syncState(true); }
 
 /* ===================================================================== */
 /*  PHASE ROUTING                                                        */
@@ -49,8 +62,7 @@ function renderAll() {
   } else {
     show('dashboard');
     renderDraw();
-    renderFixtures();
-    renderBoard();
+    renderFixtures(); // also renders the board via refreshDerived()
   }
 }
 
@@ -82,6 +94,9 @@ function renderOnboarding() {
   if ($('rosterEditBox') && document.activeElement !== $('rosterEditBox')) {
     $('rosterEditBox').value = STATE.players.map(p => p.name).join('\n');
   }
+  // Once the draw is locked the roster must not be editable (server guards this too).
+  if ($('rosterEditBox')) $('rosterEditBox').readOnly = !!STATE.locked;
+  if ($('rosterSaveBtn')) $('rosterSaveBtn').disabled = !!STATE.locked;
 }
 
 /* ===================================================================== */
@@ -89,7 +104,10 @@ function renderOnboarding() {
 /* ===================================================================== */
 function verifyBadge() {
   if (!STATE.seed || !STATE.assignments) return '';
-  const recomputed = computeAssignments(STATE.seed, STATE.players.map(p => p.name));
+  // Verify against the player list captured IN the assignments themselves, not the
+  // current roster — this is immune to later roster edits and proves the stored
+  // strong/weak teams match what seed+those-players produce.
+  const recomputed = computeAssignments(STATE.seed, STATE.assignments.map(a => a.player));
   // Compare canonically: jsonb reorders object keys on storage, so a raw
   // JSON.stringify would mismatch identical draws. Compare player→teams tuples.
   const norm = a => a.map(x => x.player + '|' + x.strong[0] + '|' + x.weak[0]).join(';');
@@ -129,7 +147,13 @@ function renderDraw() {
 /* ===================================================================== */
 /*  RENDER: FIXTURES (pool inputs built once) + KO recorder              */
 /* ===================================================================== */
-function renderFixtures() {
+// The pool accordions + KO <select> option lists depend only on static
+// GROUPS/PAIRS/ALL_TEAMS, so build them ONCE. The 7s poll then only updates
+// score-input values and the derived standings/leaderboard, preserving
+// <details> open/closed state and any in-progress KO selections.
+let fixturesBuilt = false;
+
+function buildFixturesScaffold() {
   const disabled = isAdmin() ? '' : ' disabled';
   // pool fixtures
   let h = '';
@@ -153,14 +177,29 @@ function renderFixtures() {
   }
   if ($('poolWrap')) $('poolWrap').innerHTML = h;
 
-  // knockout team selectors
+  // knockout team selectors (option lists are static)
   if ($('koA') && $('koB')) {
     const opts = '<option value="">— team —</option>' + ALL_TEAMS.map(n => '<option value="' + esc(n) + '">' + TEAM[n].flag + '  ' + esc(n) + '</option>').join('');
     $('koA').innerHTML = opts;
     $('koB').innerHTML = opts;
   }
   syncKoPen();
+  fixturesBuilt = true;
+}
 
+function renderFixtures() {
+  if (!fixturesBuilt) buildFixturesScaffold();
+  else {
+    // Subsequent calls: only update score-input values from STATE.pool, never
+    // re-innerHTML the wrap/selects (preserves <details> state + KO selections).
+    // Skip the focused input so we don't clobber what the admin is typing.
+    document.querySelectorAll('#poolWrap .sc').forEach(inp => {
+      if (document.activeElement === inp) return;
+      const sc = STATE.pool[inp.dataset.mid] || ['', ''];
+      const v = sc[+inp.dataset.side];
+      inp.value = (v ?? '') === '' ? '' : v;
+    });
+  }
   renderKoList();
   refreshDerived();
 }
@@ -341,7 +380,12 @@ on('runDrawBtn', 'click', async () => {
 // Admin: save roster
 on('rosterSaveBtn', 'click', async () => {
   const names = $('rosterEditBox').value.split('\n').map(s => s.trim()).filter(Boolean);
-  await post('/api/admin/roster', { names }, true);
+  const r = await post('/api/admin/roster', { names }, true);
+  if (r && r.error === 'locked') {
+    alert('Roster is locked — the draw has been run.');
+    await refresh();
+    return;
+  }
   await refresh();
 });
 
@@ -370,8 +414,8 @@ function startPolling() {
   POLL = setInterval(async () => {
     // don't clobber an input the user is editing
     if (document.activeElement && document.activeElement.matches && document.activeElement.matches('input, textarea, select')) return;
-    STATE = await getState();
-    renderAll();
+    // syncState skips the full re-render when the payload is byte-identical
+    await syncState(false);
   }, 7000);
 }
 
