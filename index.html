@@ -192,7 +192,10 @@
          no inline display style, which would override the stylesheet rule) -->
     <div class="card" id="adminBar">
       <h2>Banker controls</h2>
-      <label class="fld">Roster (one name per line)</label>
+      <label class="fld">Entry payments &mdash; <b id="paymentsState">off</b></label>
+      <p class="hint" style="margin-bottom:8px">Off = players just confirm entry. Turn on once your Stitch account is live to show the Pay R250 button.</p>
+      <div class="btnrow"><button class="act ghost" id="paymentsToggle">Enable payments</button></div>
+      <label class="fld" style="margin-top:14px">Roster (one name per line)</label>
       <textarea id="rosterEditBox" rows="8"></textarea>
       <div class="btnrow"><button class="act ghost" id="rosterSaveBtn">Save roster</button></div>
       <label class="fld" style="margin-top:14px">Draw seed</label>
