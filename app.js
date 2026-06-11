@@ -4,6 +4,7 @@
 import { TEAM, GROUPS, PAIRS, ALL_TEAMS, STAGE_ORDER, KO_LABEL, POOL_WIN, MATCH_DATES, KO_DATES, RANKINGS } from '/lib/teams.js';
 import { deriveAll, teamPts, standingsFor, leaderboardRows } from '/lib/scoring.js';
 import { computeAssignments } from '/lib/draw.js';
+import { prizes } from '/lib/prizes.js';
 
 let STATE = { locked: false, seed: null, paymentsEnabled: false, players: [], assignments: null, pool: {}, ko: [] };
 let POLL = null;
@@ -12,6 +13,26 @@ const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); // §10 fix
 function adminKey() { return sessionStorage.getItem('sweep:admin') || ''; }
 function isAdmin() { return !!adminKey(); }
+
+// "R5 750" style — space thousands separator to match the static markup.
+const rand = n => 'R' + Math.round(n).toLocaleString('en-US').replace(/,/g, ' ');
+// Effective player count: the locked draw size once drawn, else the live roster.
+function playerCount() {
+  return STATE.locked && STATE.assignments ? STATE.assignments.length : (STATE.players ? STATE.players.length : 0);
+}
+// Paint the header pot row + prize-split card from the current player count.
+function renderMoney() {
+  const p = prizes(playerCount());
+  const set = (id, val) => { const el = $(id); if (el) el.textContent = val; };
+  set('potPlayers', String(p.players));
+  set('potTotal', rand(p.pot));
+  set('potTeams', String(p.players * 2));
+  set('prizeHeading', 'Prize split — ' + rand(p.pot) + ' pot');
+  set('prize1', rand(p.first));
+  set('prize2', rand(p.second));
+  set('prize3', rand(p.third));
+  set('prizeW', rand(p.wildcard));
+}
 
 // Format an ISO date (YYYY-MM-DD) as e.g. "Thu 11 Jun" — parsed at noon UTC so the
 // calendar day never shifts with the viewer's timezone.
@@ -73,6 +94,7 @@ async function refresh() { await syncState(true); }
 /*  PHASE ROUTING                                                        */
 /* ===================================================================== */
 function renderAll() {
+  renderMoney();
   document.body.classList.toggle('admin', isAdmin());
   if (!STATE.locked) {
     show('onboarding');
@@ -303,14 +325,15 @@ function renderBoard(d) {
     return;
   }
   const rows = leaderboardRows(assignments, d);
+  const pz = prizes(rows.length);
   let bestWild = -1; rows.forEach(r => { if (r.wp > bestWild) bestWild = r.wp; });
   let h = '<thead><tr><th>#</th><th>Player</th><th>Strong</th><th>Wildcard</th><th style="text-align:right">Str</th><th style="text-align:right">Wild</th><th style="text-align:right">Total</th><th style="text-align:right">GF</th></tr></thead><tbody>';
   rows.forEach((r, i) => {
     const pos = i + 1; let prize = '';
-    if (pos === 1) prize = '<span class="prize">R3 000</span>';
-    else if (pos === 2) prize = '<span class="prize">R1 500</span>';
-    else if (pos === 3) prize = '<span class="prize">R900</span>';
-    const wild = (r.wp === bestWild && bestWild > 0) ? '<span class="prize wild">R600</span>' : '';
+    if (pos === 1) prize = '<span class="prize">' + rand(pz.first) + '</span>';
+    else if (pos === 2) prize = '<span class="prize">' + rand(pz.second) + '</span>';
+    else if (pos === 3) prize = '<span class="prize">' + rand(pz.third) + '</span>';
+    const wild = (r.wp === bestWild && bestWild > 0) ? '<span class="prize wild">' + rand(pz.wildcard) + '</span>' : '';
     h += '<tr><td class="lb-rank ' + (pos <= 3 ? 'p' + pos : '') + '">' + pos + '</td>'
       + '<td class="pl-name">' + esc(r.player) + prize + wild + '</td>'
       + '<td>' + teamChip(r.strong, 's') + '</td><td>' + teamChip(r.weak, 'w') + '</td>'

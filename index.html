@@ -163,10 +163,10 @@
     <h1>Family World Cup <span class="yr">Sweepstake</span></h1>
     <p class="sub">24 players. 48 teams. One strong side, one wildcard each &mdash; combined points decide it. Banker: Matt.</p>
     <div class="potrow">
-      <div class="stat"><div class="k">Players</div><div class="v">24</div></div>
+      <div class="stat"><div class="k">Players</div><div class="v" id="potPlayers">24</div></div>
       <div class="stat"><div class="k">Entry</div><div class="v">R250</div></div>
-      <div class="stat"><div class="k">Total pot</div><div class="v g">R6 000</div></div>
-      <div class="stat"><div class="k">Teams</div><div class="v y">48</div></div>
+      <div class="stat"><div class="k">Total pot</div><div class="v g" id="potTotal">R6 000</div></div>
+      <div class="stat"><div class="k">Teams</div><div class="v y" id="potTeams">48</div></div>
     </div>
     <div style="text-align:right;margin-top:8px">
       <button class="del" id="adminLock" title="Banker login">&#128274;</button>
@@ -326,13 +326,13 @@
     </div>
 
     <div class="card">
-      <h2>Prize split &mdash; R6 000 pot</h2>
+      <h2 id="prizeHeading">Prize split &mdash; R6 000 pot</h2>
       <p class="lead">Spread across the top finishers so nobody checks out early, plus a wildcard prize to keep the second-team chase alive.</p>
       <div class="splitgrid">
-        <div class="prizebox p1"><div class="pos">1st overall</div><div class="amt">R3 000</div></div>
-        <div class="prizebox"><div class="pos">2nd overall</div><div class="amt">R1 500</div></div>
-        <div class="prizebox"><div class="pos">3rd overall</div><div class="amt">R900</div></div>
-        <div class="prizebox wild"><div class="pos">Best wildcard team</div><div class="amt">R600</div></div>
+        <div class="prizebox p1"><div class="pos">1st overall</div><div class="amt" id="prize1">R3 000</div></div>
+        <div class="prizebox"><div class="pos">2nd overall</div><div class="amt" id="prize2">R1 500</div></div>
+        <div class="prizebox"><div class="pos">3rd overall</div><div class="amt" id="prize3">R900</div></div>
+        <div class="prizebox wild"><div class="pos">Best wildcard team</div><div class="amt" id="prizeW">R600</div></div>
       </div>
       <p class="hint" style="margin-top:14px">"Best wildcard" = the highest-scoring tier-2 (rank 25&ndash;48) team in the pool.</p>
     </div>
