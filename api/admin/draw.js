@@ -8,6 +8,7 @@ export default async function handler(req, res){
   if (!seed) return res.status(400).json({ error: 'seed_required' });
   const r = await runDraw(seed, !!force);
   if (r.error === 'locked') return res.status(409).json({ error: 'already_locked' });
-  if (r.error === 'need24') return res.status(400).json({ error: 'need_24_players', count: r.count });
+  if (r.error === 'tooManyPlayers') return res.status(400).json({ error: 'too_many_players', count: r.count });
+  if (r.error === 'tooFewPlayers') return res.status(400).json({ error: 'too_few_players', count: r.count });
   res.status(200).json(await getState());
 }
