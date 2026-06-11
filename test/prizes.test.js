@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { prizes, ENTRY } from '../lib/prizes.js';
+import { prizes, ENTRY, SPLIT } from '../lib/prizes.js';
 
 test('entry fee is R250', () => {
   assert.equal(ENTRY, 250);
@@ -25,4 +25,13 @@ test('odd counts round each prize to the nearest rand', () => {
 test('zero players yields a zero pot, no NaN', () => {
   assert.deepEqual(prizes(0),
     { players: 0, pot: 0, first: 0, second: 0, third: 0, wildcard: 0 });
+});
+
+test('SPLIT keeps the original percentages and sums to 100%', () => {
+  assert.deepEqual(SPLIT, { first: 0.50, second: 0.25, third: 0.15, wildcard: 0.10 });
+  assert.equal(SPLIT.first + SPLIT.second + SPLIT.third + SPLIT.wildcard, 1);
+});
+
+test('negative or garbage input is floored to zero', () => {
+  assert.deepEqual(prizes(-5), prizes(0));
 });
