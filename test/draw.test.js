@@ -49,10 +49,15 @@ test('20 players keeps only the top-20 of each tier', () => {
   assert.equal(new Set(asg.map(a => a.weak[0])).size, 20);
 });
 
-test('trimmed draw stays reproducible for a seed', () => {
-  const a = computeAssignments('seed-7', NAMES.slice(0, 18));
-  const b = computeAssignments('seed-7', NAMES.slice(0, 18));
-  assert.deepEqual(a, b);
+test('trimming changes the draw vs the full 24 for the same seed', () => {
+  const full = computeAssignments('seed-7', NAMES);
+  const trimmed = computeAssignments('seed-7', NAMES.slice(0, 18));
+  // Different team pool + fewer RNG draws => different assignment, and the
+  // trimmed draw must exclude the lowest-ranked teams of each tier.
+  assert.equal(trimmed.length, 18);
+  assert.ok(trimmed.every(a => a.strong[2] >= 1 && a.strong[2] <= 18));
+  assert.ok(trimmed.every(a => a.weak[2] >= 25 && a.weak[2] <= 42));
+  assert.notDeepEqual(trimmed, full.slice(0, 18));
 });
 
 test('24 players still uses all 48 teams', () => {
