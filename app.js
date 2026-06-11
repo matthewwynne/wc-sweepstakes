@@ -424,8 +424,11 @@ on('runDrawBtn', 'click', async () => {
   const seed = $('seedInput').value.trim();
   if (!seed) return alert('Enter a seed first.');
   const r = await post('/api/admin/draw', { seed }, true);
-  if (r && r.error === 'need_24_players') {
-    if (!confirm('You have ' + r.count + ' players (24 needed). Draw anyway?')) return;
+  if (r && r.error === 'too_many_players') {
+    return alert('Too many players (' + r.count + '). Maximum is 24.');
+  }
+  if (r && r.error === 'too_few_players') {
+    if (!confirm('You have ' + r.count + ' players (minimum 2 needed). Draw anyway?')) return;
     await post('/api/admin/draw', { seed, force: true }, true);
   }
   await refresh();
