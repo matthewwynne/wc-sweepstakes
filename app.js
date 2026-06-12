@@ -96,6 +96,7 @@ async function refresh() { await syncState(true); }
 function renderAll() {
   renderMoney();
   document.body.classList.toggle('admin', isAdmin());
+  renderAdminBar();
   if (!STATE.locked) {
     show('onboarding');
     renderOnboarding();
@@ -141,16 +142,25 @@ function renderOnboarding() {
   }).join('');
   $('nameSelect').innerHTML = '<option value="">— pick your name —</option>'
     + STATE.players.filter(p => !p.confirmed).map(p => '<option>' + esc(p.name) + '</option>').join('');
-  // admin: roster editor (only repopulate when not focused so edits aren't clobbered)
-  if ($('rosterEditBox') && document.activeElement !== $('rosterEditBox')) {
+}
+
+// Admin "Banker controls" card. It lives outside the phase views and is shown to the
+// admin in EVERY phase, so the roster + reset stay reachable even after the draw locks.
+// Runs on every render (not just onboarding) — that's why it's its own function.
+function renderAdminBar() {
+  if (!$('adminBar')) return;
+  // Repopulate the roster editor only when it's not focused, so edits aren't clobbered.
+  if (document.activeElement !== $('rosterEditBox')) {
     $('rosterEditBox').value = STATE.players.map(p => p.name).join('\n');
   }
-  // Once the draw is locked the roster must not be editable (server guards this too).
-  if ($('rosterEditBox')) $('rosterEditBox').readOnly = !!STATE.locked;
-  if ($('rosterSaveBtn')) $('rosterSaveBtn').disabled = !!STATE.locked;
+  // Once the draw is locked the roster + draw are read-only (server guards this too).
+  // The reset button stays enabled on purpose — it's how you unlock for the next draw.
+  $('rosterEditBox').readOnly = !!STATE.locked;
+  $('rosterSaveBtn').disabled = !!STATE.locked;
+  $('runDrawBtn').disabled = !!STATE.locked;
   // Payments on/off toggle state
-  if ($('paymentsState')) $('paymentsState').textContent = STATE.paymentsEnabled ? 'ON' : 'off';
-  if ($('paymentsToggle')) $('paymentsToggle').textContent = STATE.paymentsEnabled ? 'Disable payments' : 'Enable payments';
+  $('paymentsState').textContent = STATE.paymentsEnabled ? 'ON' : 'off';
+  $('paymentsToggle').textContent = STATE.paymentsEnabled ? 'Disable payments' : 'Enable payments';
 }
 
 /* ===================================================================== */
