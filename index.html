@@ -188,22 +188,25 @@
       </div>
       <div id="rosterList" class="ko-list" style="margin-top:16px"></div>
     </div>
-    <!-- admin-only: roster editor + run draw (visibility via body.admin in CSS;
-         no inline display style, which would override the stylesheet rule) -->
-    <div class="card" id="adminBar">
-      <h2>Banker controls</h2>
-      <label class="fld">Entry payments &mdash; <b id="paymentsState">off</b></label>
-      <p class="hint" style="margin-bottom:8px">Off = players just confirm entry. Turn on once your Stitch account is live to show the Pay R250 button.</p>
-      <div class="btnrow"><button class="act ghost" id="paymentsToggle">Enable payments</button></div>
-      <label class="fld" style="margin-top:14px">Roster (one name per line)</label>
-      <textarea id="rosterEditBox" rows="8"></textarea>
-      <div class="btnrow"><button class="act ghost" id="rosterSaveBtn">Save roster</button></div>
-      <label class="fld" style="margin-top:14px">Draw seed</label>
-      <input class="seed" id="seedInput" placeholder="agree it in the chat first">
-      <div class="btnrow">
-        <button class="act go" id="runDrawBtn">&#9917; Run the draw</button>
-        <button class="act ghost" id="newGameBtn">Reset draw &amp; results</button>
-      </div>
+  </div>
+
+  <!-- admin-only banker controls: a standalone card OUTSIDE the phase views, so it
+       stays reachable in every phase — including after the draw locks, which is when
+       you need the reset. Visibility is driven by body.admin in CSS (no inline
+       display style, which would override the stylesheet rule). -->
+  <div class="card" id="adminBar">
+    <h2>Banker controls</h2>
+    <label class="fld">Entry payments &mdash; <b id="paymentsState">off</b></label>
+    <p class="hint" style="margin-bottom:8px">Off = players just confirm entry. Turn on once your Stitch account is live to show the Pay R250 button.</p>
+    <div class="btnrow"><button class="act ghost" id="paymentsToggle">Enable payments</button></div>
+    <label class="fld" style="margin-top:14px">Roster (one name per line)</label>
+    <textarea id="rosterEditBox" rows="8"></textarea>
+    <div class="btnrow"><button class="act ghost" id="rosterSaveBtn">Save roster</button></div>
+    <label class="fld" style="margin-top:14px">Draw seed</label>
+    <input class="seed" id="seedInput" placeholder="agree it in the chat first">
+    <div class="btnrow">
+      <button class="act go" id="runDrawBtn">&#9917; Run the draw</button>
+      <button class="act ghost" id="newGameBtn">Reset draw &amp; results</button>
     </div>
   </div>
 
