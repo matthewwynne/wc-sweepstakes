@@ -475,9 +475,9 @@ on('paymentsToggle', 'click', async () => {
   await refresh();
 });
 
-// Admin: start a new game (guarded)
+// Admin: reset the draw + results, keeping the roster (guarded)
 on('newGameBtn', 'click', async () => {
-  if (!confirm('Start a new game? This clears the draw and all results.')) return;
+  if (!confirm('Reset the draw and all results? Your players and their confirmations are kept — you can edit the roster before the next draw.')) return;
   await post('/api/admin/reset', {}, true);
   localStorage.removeItem('sweep:seed');
   await refresh();
