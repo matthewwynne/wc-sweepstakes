@@ -218,7 +218,10 @@ function renderDraw() {
 let fixturesBuilt = false;
 
 function buildFixturesScaffold() {
-  const disabled = isAdmin() ? '' : ' disabled';
+  // Note: edit access (the .sc `disabled` state) is NOT baked in here — it's
+  // applied on every render in renderFixtures(), because admin status can change
+  // after this scaffold is built once (e.g. the banker logs in while already on
+  // the dashboard) and this function never re-runs.
   // pool fixtures
   let h = '';
   for (const g in GROUPS) {
@@ -232,9 +235,9 @@ function buildFixturesScaffold() {
       if (dt) body += '<div style="text-align:center;font-family:\'Space Mono\',monospace;font-size:10px;letter-spacing:1px;color:var(--muted);margin-top:8px">' + fmtMatchDate(dt) + '</div>';
       body += '<div class="fix">'
         + '<div class="ta"><span class="nm2">' + esc(a) + '</span><span class="flag">' + TEAM[a].flag + '</span></div>'
-        + '<div class="scbox"><input class="sc" type="number" min="0" data-mid="' + mid + '" data-side="0" value="' + (sc[0] ?? '') + '"' + disabled + '>'
+        + '<div class="scbox"><input class="sc" type="number" min="0" data-mid="' + mid + '" data-side="0" value="' + (sc[0] ?? '') + '">'
         + '<span class="vs">v</span>'
-        + '<input class="sc" type="number" min="0" data-mid="' + mid + '" data-side="1" value="' + (sc[1] ?? '') + '"' + disabled + '></div>'
+        + '<input class="sc" type="number" min="0" data-mid="' + mid + '" data-side="1" value="' + (sc[1] ?? '') + '"></div>'
         + '<div class="tb"><span class="flag">' + TEAM[b].flag + '</span><span class="nm2">' + esc(b) + '</span></div>'
         + '</div>';
     });
@@ -276,6 +279,11 @@ function renderFixtures() {
       inp.value = (v ?? '') === '' ? '' : v;
     });
   }
+  // Re-apply edit access every render: the scaffold is built once, but admin status
+  // can change afterwards (banker logs in while already on the dashboard). Without
+  // this, pool score inputs stay disabled until a full page reload.
+  const editable = isAdmin();
+  document.querySelectorAll('#poolWrap .sc').forEach(inp => { inp.disabled = !editable; });
   renderKoList();
   refreshDerived();
 }
